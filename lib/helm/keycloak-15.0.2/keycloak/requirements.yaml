@@ -1,0 +1,5 @@
+dependencies:
+  - name: postgresql
+    version: 10.9.2
+    repository: file://../../postgresql-10.9.2/postgresql
+    condition: postgresql.enabled

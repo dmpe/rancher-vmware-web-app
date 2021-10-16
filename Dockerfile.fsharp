@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:5.0 as build
+COPY srcFSharp/ /work/
+
+RUN cd /work/ && dotnet publish DevOpsRancher.sln -c Release -o /work/out 
+
+FROM ubuntu:latest
+ENV DEBIAN_FRONTEND=noninteractive
+RUN ls -alR /home/ && apt update && apt install -y curl nano tree apt-transport-https tzdata
+RUN (set -e; \
+	curl -LOJ https://packages.microsoft.com/config/ubuntu/21.04/packages-microsoft-prod.deb;\ 
+	dpkg -i packages-microsoft-prod.deb; \
+	rm packages-microsoft-prod.deb; \
+	apt update;\
+	apt install -y aspnetcore-runtime-5.0 mariadb-client;\
+)
+COPY --from=build /work/out /home/
+ENV ASPNETCORE_URLS="http://+:9091"
+ENV ASPNETCORE_ENVIRONMENT=Development
+CMD ["/bin/bash"]
+EXPOSE 9091
