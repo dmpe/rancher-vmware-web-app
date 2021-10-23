@@ -1,3 +1,4 @@
 lib/
-src/FirstIonideProject/bin
-src/FirstIonideProject/out
+srcFSharp/
+srcGo/
+srcPy/tests

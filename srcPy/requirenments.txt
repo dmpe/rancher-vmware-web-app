@@ -4,3 +4,4 @@ mariadb
 gunicorn
 black
 isort
+prometheus-flask-exporter

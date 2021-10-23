@@ -4,16 +4,21 @@ from functools import wraps
 
 import mariadb
 from flask import Flask, jsonify, request
+from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from werkzeug.exceptions import Unauthorized
 from werkzeug.wrappers.request import Request
 
 app = Flask(__name__)
+metrics = GunicornPrometheusMetrics(app)
+
+# static information as metric
+metrics.info("app_info", "FlaskApp info", version="1.0.0")
 
 
 def get_db_con(
     _con_string=os.environ.get("DB_CON"),
     _user=os.environ.get("DB_USER"),
-    _pass=os.os.environ.get("DB_PASS"),
+    _pass=os.environ.get("DB_PASS"),
 ):
     conn = mariadb.connect(
         user=_user,
@@ -47,6 +52,7 @@ def check_api_key(f):
 
 
 @app.route("/")
+@metrics.counter("cnt_index", "Homepage invocations")
 def index():
     return "Homepage"
 
@@ -60,9 +66,13 @@ def ping_pong():
 @app.route("/freehosts")
 @check_api_key
 def get_next_free_vm():
+    limit = request.args.get('limit')        
     cn = get_db_con()
     cur = cn.cursor()
-    cur.execute("Select host_name, host_id FROM api.free_hostnames")
+    if limit is None:
+        cur.execute("Select host_name, host_id FROM api.free_hostnames")
+    else:
+        cur.execute("Select host_name, host_id FROM api.free_hostnames WHERE limit=%s", (limit))
 
     free_VMs = []
     for (host_name, host_id) in cur:
