@@ -3,18 +3,22 @@ import sys
 from functools import wraps
 
 import mariadb
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from werkzeug.exceptions import Unauthorized
 from werkzeug.wrappers.request import Request
 
 app = Flask(__name__)
 
 
-def get_db_con(con_string=os.environ.get("DB_CON")):
+def get_db_con(
+    _con_string=os.environ.get("DB_CON"),
+    _user=os.environ.get("DB_USER"),
+    _pass=os.os.environ.get("DB_PASS"),
+):
     conn = mariadb.connect(
-        user="jm",
-        password="benz",
-        host=con_string,
+        user=_user,
+        password=_pass,
+        host=_con_string,
         port=3306,
     )
     return conn
@@ -55,51 +59,53 @@ def ping_pong():
 # // GET
 @app.route("/freehosts")
 @check_api_key
-def virt_mach():
+def get_next_free_vm():
     cn = get_db_con()
     cur = cn.cursor()
     cur.execute("Select host_name, host_id FROM api.free_hostnames")
-    
-    contacts = []
+
+    free_VMs = []
     for (host_name, host_id) in cur:
-        contacts.append({"host_name": host_name, "host_id":host_id})
-    
+        free_VMs.append({"host_name": host_name, "host_id": host_id})
+
     close_db(cn)
-    return(jsonify(contacts))
+    return jsonify(free_VMs)
+
 
 # // GET
 @app.route("/cluster_nodes_vm/<string:name>")
 @check_api_key
-def cluster_nodes_vm(name):
+def get_cluster_nodes_vm(name):
     cn = get_db_con()
     cur = cn.cursor()
     statement = "CALL sp_nodes_in_cluster_name(%s)"
     data = (name,)
-    cur.execute(statement,data)
+    cur.execute(statement, data)
 
-    contacts = []
+    cl_nodes = []
     for i in cur:
-        contacts.append(i)
-    
+        cl_nodes.append(i)
+
     close_db(cn)
-    return(jsonify(contacts))
+    return jsonify(cl_nodes)
+
 
 # // GET
 @app.route("/cluster_nodes_id/<int:id>")
 @check_api_key
-def cluster_nodes_id(id):
+def get_cluster_nodes_id(id):
     cn = get_db_con()
     cur = cn.cursor()
     statement = "CALL sp_nodes_in_cluster_id(%s)"
     data = (id,)
-    cur.execute(statement,data)
+    cur.execute(statement, data)
 
-    contacts = []
+    cl_nodes = []
     for i in cur:
-        contacts.append(i)
+        cl_nodes.append(i)
 
     close_db(cn)
-    return(jsonify(contacts))
+    return jsonify(cl_nodes)
 
 
 # @app.route("/update_node_str/<str:name>")

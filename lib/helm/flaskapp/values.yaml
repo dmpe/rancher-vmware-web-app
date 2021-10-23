@@ -18,7 +18,11 @@ env:
   - name: Authorization
     value: YWRtaW46YWRtaW4=
   - name: DB_CON
-    value: mariadb.default.svc.cluster.local
+    value: "mariadb.default.svc.cluster.local"
+  - name: DB_USER
+    value: jm
+  - name: DB_PASS
+    value: benz
 
 serviceAccount:
   # Specifies whether a service account should be created
