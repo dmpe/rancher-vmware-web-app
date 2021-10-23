@@ -7,13 +7,12 @@ from flask import Flask, jsonify, request
 from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from werkzeug.exceptions import Unauthorized
 from werkzeug.wrappers.request import Request
-
+import logging
 app = Flask(__name__)
 metrics = GunicornPrometheusMetrics(app)
 
 # static information as metric
 metrics.info("app_info", "FlaskApp info", version="1.0.0")
-
 
 def get_db_con(
     _con_string=os.environ.get("DB_CON"),
@@ -64,6 +63,7 @@ def ping_pong():
 
 # // GET
 @app.route("/freehosts")
+@app.route("/freehost")
 @check_api_key
 def get_next_free_vm():
     limit = request.args.get('limit')        
@@ -72,7 +72,9 @@ def get_next_free_vm():
     if limit is None:
         cur.execute("Select host_name, host_id FROM api.free_hostnames")
     else:
-        cur.execute("Select host_name, host_id FROM api.free_hostnames WHERE limit=%s", (limit))
+        statement = "Select host_name, host_id FROM api.free_hostnames LIMIT %s"
+        data=(limit,)
+        cur.execute(statement, data)
 
     free_VMs = []
     for (host_name, host_id) in cur:
@@ -88,7 +90,7 @@ def get_next_free_vm():
 def get_cluster_nodes_vm(name):
     cn = get_db_con()
     cur = cn.cursor()
-    statement = "CALL sp_nodes_in_cluster_name(%s)"
+    statement = "CALL api.sp_nodes_in_cluster_name(%s)"
     data = (name,)
     cur.execute(statement, data)
 
@@ -106,7 +108,7 @@ def get_cluster_nodes_vm(name):
 def get_cluster_nodes_id(id):
     cn = get_db_con()
     cur = cn.cursor()
-    statement = "CALL sp_nodes_in_cluster_id(%s)"
+    statement = "CALL api.sp_nodes_in_cluster_id(%s)"
     data = (id,)
     cur.execute(statement, data)
 
@@ -125,7 +127,7 @@ def get_cluster_nodes_id(id):
 #     cur = cn.cursor()
 # , vmware_created=False, rancher_allocated=False, ip="::0.0.0.0"
 #     statement = "UPDATE api.vmware_master_data SET vmware_created=%s, rancher_allocated=%s, ip=%s WHERE host_name=%s"
-#     data = (vmware_created,rancher_allocated,ip,name)
+#     data = (vmware_created,rancher_allocated,ip,name,)
 #     cur.execute(statement,data)
 #     cn.commit()
 #     close_db(cn)
@@ -138,7 +140,7 @@ def get_cluster_nodes_id(id):
 #     cn = get_db_con()
 #     cur = cn.cursor()
 #     statement = "UPDATE api.vmware_master_data SET vmware_created=%s, rancher_allocated=%s, ip=%s WHERE host_id=%s"
-#     data = (vmware_created,rancher_allocated,ip,id)
+#     data = (vmware_created,rancher_allocated,ip,id,)
 #     cur.execute(statement,data)
 #     cn.commit()
 #     close_db(cn)
