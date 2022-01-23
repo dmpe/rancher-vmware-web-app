@@ -1,8 +1,10 @@
 import os
 import sys
+import sqlite3
+import apsw
 from functools import wraps
-
-import mariadb
+import boto3
+import sqlite_s3vfs
 from flask import Flask, jsonify, request
 from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from werkzeug.exceptions import Unauthorized
@@ -12,24 +14,23 @@ app = Flask(__name__)
 metrics = GunicornPrometheusMetrics(app)
 
 # static information as metric
-metrics.info("app_info", "FlaskApp info", version="1.0.0")
+metrics.info("app_info", "FlaskApp Alpha", version="1.0.1")
 
-def get_db_con(
-    _con_string=os.environ.get("DB_CON"),
-    _user=os.environ.get("DB_USER"),
-    _pass=os.environ.get("DB_PASS"),
-):
-    conn = mariadb.connect(
-        user=_user,
-        password=_pass,
-        host=_con_string,
-        port=3306,
+def ct_bucket():
+    s3_client = boto3.resource(
+        resource_name='s3',
+        region_name='alpha-east-3',
+        verify='/etc/ssl/certs/ca-bundle.crt',
+        aws_access_key_id='abc',
+        aws_secret_access_key='dew',
+        endpoint_url='https://bucket.vpce-abc123-abcdefgh.s3.us-east-1.vpce.amazonaws.com', 
     )
-    return conn
+    bucket = s3_client.Bucket('my-bucket')
+    return bucket
 
+s3vfs = sqlite_s3vfs.S3VFS(bucket=ct_bucket())
 
-def close_db(con):
-    con.close()
+key_prefix = 'rancher.sqlite'
 
 
 # Create Flask Decorator:
@@ -51,12 +52,13 @@ def check_api_key(f):
 
 
 @app.route("/")
-@metrics.counter("cnt_index", "Homepage invocations")
+@metrics.counter("homepage_index", "Homepage invocations")
 def index():
     return "Homepage"
 
 
 @app.route("/ping")
+@metrics.counter("ping_pong_index", "Ping/Pong invocations")
 def ping_pong():
     return "pong"
 
@@ -84,40 +86,40 @@ def get_next_free_vm():
     return jsonify(free_VMs)
 
 
-# // GET
-@app.route("/cluster_nodes_vm/<string:name>")
-@check_api_key
-def get_cluster_nodes_vm(name):
-    cn = get_db_con()
-    cur = cn.cursor()
-    statement = "CALL api.sp_nodes_in_cluster_name(%s)"
-    data = (name,)
-    cur.execute(statement, data)
+# # // GET
+# @app.route("/cluster_nodes_vm/<string:name>")
+# @check_api_key
+# def get_cluster_nodes_vm(name):
+#     cn = get_db_con()
+#     cur = cn.cursor()
+#     statement = "CALL api.sp_nodes_in_cluster_name(%s)"
+#     data = (name,)
+#     cur.execute(statement, data)
 
-    cl_nodes = []
-    for i in cur:
-        cl_nodes.append(i)
+#     cl_nodes = []
+#     for i in cur:
+#         cl_nodes.append(i)
 
-    close_db(cn)
-    return jsonify(cl_nodes)
+#     close_db(cn)
+#     return jsonify(cl_nodes)
 
 
-# // GET
-@app.route("/cluster_nodes_id/<int:id>")
-@check_api_key
-def get_cluster_nodes_id(id):
-    cn = get_db_con()
-    cur = cn.cursor()
-    statement = "CALL api.sp_nodes_in_cluster_id(%s)"
-    data = (id,)
-    cur.execute(statement, data)
+# # // GET
+# @app.route("/cluster_nodes_id/<int:id>")
+# @check_api_key
+# def get_cluster_nodes_id(id):
+#     cn = get_db_con()
+#     cur = cn.cursor()
+#     statement = "CALL api.sp_nodes_in_cluster_id(%s)"
+#     data = (id,)
+#     cur.execute(statement, data)
 
-    cl_nodes = []
-    for i in cur:
-        cl_nodes.append(i)
+#     cl_nodes = []
+#     for i in cur:
+#         cl_nodes.append(i)
 
-    close_db(cn)
-    return jsonify(cl_nodes)
+#     close_db(cn)
+#     return jsonify(cl_nodes)
 
 
 # @app.route("/update_node_str/<str:name>")
