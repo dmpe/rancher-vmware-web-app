@@ -88,6 +88,7 @@ def get_next_free_vm():
 
 # TODO
 @app.route("/created/<str:name>", methods=["POST"])
+@check_api_key
 def post_created_update(name):
     req = request.get_json()
     with apsw.Connection(key_prefix, vfs=s3vfs.name) as db:
@@ -105,54 +106,40 @@ def post_created_update(name):
     res = make_response(jsonify(response_body), 200)
     return(res)
 
-# # // GET
-# @app.route("/cluster_nodes_vm/<string:name>")
-# @check_api_key
-# def get_cluster_nodes_vm(name):
-#     cn = get_db_con()
-#     cur = cn.cursor()
-#     statement = "CALL api.sp_nodes_in_cluster_name(%s)"
-#     data = (name,)
-#     cur.execute(statement, data)
+# // GET
+@app.route("/cluster_nodes_vm/<string:name>")
+@check_api_key
+def get_cluster_nodes_vm(name):
+    cn = get_db_con()
+    cur = cn.cursor()
+    statement = "CALL api.sp_nodes_in_cluster_name(%s)"
+    data = (name,)
+    cur.execute(statement, data)
 
-#     cl_nodes = []
-#     for i in cur:
-#         cl_nodes.append(i)
+    cl_nodes = []
+    for i in cur:
+        cl_nodes.append(i)
 
-#     close_db(cn)
-#     return jsonify(cl_nodes)
-
-
-# # // GET
-# @app.route("/cluster_nodes_id/<int:id>")
-# @check_api_key
-# def get_cluster_nodes_id(id):
-#     cn = get_db_con()
-#     cur = cn.cursor()
-#     statement = "CALL api.sp_nodes_in_cluster_id(%s)"
-#     data = (id,)
-#     cur.execute(statement, data)
-
-#     cl_nodes = []
-#     for i in cur:
-#         cl_nodes.append(i)
-
-#     close_db(cn)
-#     return jsonify(cl_nodes)
+    close_db(cn)
+    return jsonify(cl_nodes)
 
 
-# @app.route("/update_node_str/<str:name>")
-# @check_api_key
-# def update_node_str(name):
-#     cn = get_db_con()
-#     cur = cn.cursor()
-# , vmware_created=False, rancher_allocated=False, ip="::0.0.0.0"
-#     statement = "UPDATE api.vmware_master_data SET vmware_created=%s, rancher_allocated=%s, ip=%s WHERE host_name=%s"
-#     data = (vmware_created,rancher_allocated,ip,name,)
-#     cur.execute(statement,data)
-#     cn.commit()
-#     close_db(cn)
-#     return(jsonify(cur))
+# // GET
+@app.route("/cluster_nodes_id/<int:id>")
+@check_api_key
+def get_cluster_nodes_id(id):
+    cn = get_db_con()
+    cur = cn.cursor()
+    statement = "CALL api.sp_nodes_in_cluster_id(%s)"
+    data = (id,)
+    cur.execute(statement, data)
+
+    cl_nodes = []
+    for i in cur:
+        cl_nodes.append(i)
+
+    close_db(cn)
+    return jsonify(cl_nodes)
 
 
 # @app.route("/update_node_id/<int:id>")
