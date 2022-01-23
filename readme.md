@@ -8,13 +8,6 @@ There has been some evolution, therefore this repository also holds some past at
 
 Without associated `rancher.sql` is project is of no use to anybody. Rancher SQL file is not commited here.
 
-### Status of FSharp
-
-- only `FreeHosts/` Get endpoint is working.
-
-### Status of Go
-
-- new, some tests, but due to lacking OpenAPI3+ Swagger support in the ecosystem (only Swagger2), no further investigations
 
 ### Status of Flask
 
@@ -148,3 +141,10 @@ http://localhost:4040/
 
 
 
+## Databases with S3 Support
+
+| Database                         | S3 Docs                                      | Client                                                                                                          |
+|----------------------------------|----------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| RW virtual filesystem for SQLite | https://github.com/uktrade/sqlite-s3vfs      |                                                                                                                 |
+| ImmuDB - Full s3 support         | https://github.com/codenotary/immudb         | https://docs.immudb.io/master/operations/specs.html#s3-storage-backend, https://github.com/codenotary/immudb-py |
+| MariaDB - Read Only              | https://mariadb.com/kb/en/s3-storage-engine/ 

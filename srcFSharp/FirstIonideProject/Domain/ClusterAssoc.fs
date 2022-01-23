@@ -1,2 +1,0 @@
-module FirstIonideProject.Domain.ClusterAssoc
-

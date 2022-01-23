@@ -6,3 +6,4 @@ black
 isort
 prometheus-flask-exporter
 python-json-logger
+boto3
