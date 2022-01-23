@@ -1,11 +1,12 @@
 import os
 import sys
+import json
 import sqlite3
 import apsw
 from functools import wraps
 import boto3
 import sqlite_s3vfs
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, make_response, request
 from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from werkzeug.exceptions import Unauthorized
 from werkzeug.wrappers.request import Request
@@ -62,29 +63,47 @@ def index():
 def ping_pong():
     return "pong"
 
-
-# // GET
-@app.route("/freehosts")
-@app.route("/freehost")
+@app.route("/next_hosts", methods=["GET"])
+@app.route("/next_host", methods=["GET"])
 @check_api_key
 def get_next_free_vm():
     limit = request.args.get('limit')        
-    cn = get_db_con()
-    cur = cn.cursor()
-    if limit is None:
-        cur.execute("Select host_name, host_id FROM api.free_hostnames")
-    else:
-        statement = "Select host_name, host_id FROM api.free_hostnames LIMIT %s"
-        data=(limit,)
-        cur.execute(statement, data)
+    
+    with apsw.Connection(key_prefix, vfs=s3vfs.name) as db:
+        cursor = db.cursor()
+        if limit is None:
+            cursor.execute("Select host_name, host_id FROM free_hostnames")
+        else:
+            statement = "Select host_name, host_id FROM free_hostnames LIMIT %s"
+            data=(limit,)
+            cursor.execute(statement, data)
+    
+        cur=cursor.fetchall()
 
     free_VMs = []
     for (host_name, host_id) in cur:
         free_VMs.append({"host_name": host_name, "host_id": host_id})
 
-    close_db(cn)
     return jsonify(free_VMs)
 
+# TODO
+@app.route("/created/<str:name>", methods=["POST"])
+def post_created_update(name):
+    req = request.get_json()
+    with apsw.Connection(key_prefix, vfs=s3vfs.name) as db:
+        cursor = db.cursor()
+        statement = "UPDATE vmware_master_data SET vmware_created=%s, rancher_allocated=%s, ip=%s WHERE host_name=%s"
+        data = (vmware_created,rancher_allocated,ip,name,)
+        cur.execute(statement,data)
+        cur.commit()
+    
+    response_body = {
+        "message": "Update has been successful.",
+        "sender": req.get("name")
+    }
+
+    res = make_response(jsonify(response_body), 200)
+    return(res)
 
 # # // GET
 # @app.route("/cluster_nodes_vm/<string:name>")
