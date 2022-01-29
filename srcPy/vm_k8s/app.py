@@ -78,8 +78,8 @@ def get_next_free_vm():
 
     s3vfs = sqlite_s3vfs.S3VFS(bucket=as_bucket)
 
-    for my_bucket_object in as_bucket.objects.all():
-        print(my_bucket_object)
+    # for my_bucket_object in as_bucket.objects.all():
+    #     print(my_bucket_object)
 
     with apsw.Connection(
         key_prefix,
@@ -113,6 +113,10 @@ def get_next_free_vm():
             cursor.execute(statement, data)
 
         dt = cursor.fetchall()
+
+    # Convert again to a new 1 file, called rancher3.db
+    target_obj = as_bucket.Object('rancher3.db')
+    target_obj.upload_fileobj(s3vfs.serialize_fileobj(key_prefix="rancher2.sqlite"))
 
     free_VMs = []
     for (host_name, host_id) in dt:
