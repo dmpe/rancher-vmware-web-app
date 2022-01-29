@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import sqlite3
 import apsw
 from functools import wraps
 import boto3
@@ -11,27 +10,26 @@ from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from werkzeug.exceptions import Unauthorized
 from werkzeug.wrappers.request import Request
 import logging
+from contextlib import closing, contextmanager
+
 app = Flask(__name__)
 metrics = GunicornPrometheusMetrics(app)
+key_prefix = "rancher.db"
 
 # static information as metric
 metrics.info("app_info", "FlaskApp Alpha", version="1.0.1")
 
-def ct_bucket():
+
+def aws_bucket():
     s3_client = boto3.resource(
-        resource_name='s3',
-        region_name='alpha-east-3',
-        verify='/etc/ssl/certs/ca-bundle.crt',
-        aws_access_key_id='abc',
-        aws_secret_access_key='dew',
-        endpoint_url='https://bucket.vpce-abc123-abcdefgh.s3.us-east-1.vpce.amazonaws.com', 
+        "s3",
+        region_name="alpha-east-3",
+        verify=False,
+        aws_access_key_id="test",
+        aws_secret_access_key="123456789",
+        endpoint_url="http://172.17.0.2:9000",
     )
-    bucket = s3_client.Bucket('my-bucket')
-    return bucket
-
-s3vfs = sqlite_s3vfs.S3VFS(bucket=ct_bucket())
-
-key_prefix = 'rancher.sqlite'
+    return s3_client
 
 
 # Create Flask Decorator:
@@ -63,48 +61,95 @@ def index():
 def ping_pong():
     return "pong"
 
+
 @app.route("/next_hosts", methods=["GET"])
 @app.route("/next_host", methods=["GET"])
 @check_api_key
 def get_next_free_vm():
-    limit = request.args.get('limit')        
-    
-    with apsw.Connection(key_prefix, vfs=s3vfs.name) as db:
+    """
+    In order to read a DB file on s3, you first have to deserialize sqlite DB (usually 1 file), and only then read it.
+    By doing that, you convert 1 file into many chunks.
+    Exactly like https://github.com/uktrade/sqlite-s3vfs#serializing-getting-a-regular-sqlite-file-out-of-the-vfs
+    describes
+    """
+    limit = request.args.get("limit")
+    as_bucket = aws_bucket().Bucket("test")
+    source_obj = as_bucket.Object(key_prefix)
+
+    s3vfs = sqlite_s3vfs.S3VFS(bucket=as_bucket)
+
+    for my_bucket_object in as_bucket.objects.all():
+        print(my_bucket_object)
+
+    with apsw.Connection(
+        key_prefix,
+        vfs=s3vfs.name,
+    ) as db:
+        print("      Using APSW file", apsw.__file__)  # from the extension module
+        print("         APSW version", apsw.apswversion())  # from the extension module
+        print(
+            "   SQLite lib version", apsw.sqlitelibversion()
+        )  # from the sqlite library code
+        print(
+            "SQLite header version", apsw.SQLITE_VERSION_NUMBER
+        )  # from the sqlite header file at compile time
         cursor = db.cursor()
+
+        bytes_iter = source_obj.get()["Body"].iter_chunks()
+        s3vfs.deserialize_iter(key_prefix="rancher2.sqlite", bytes_iter=bytes_iter)
+
+    with closing(apsw.Connection("rancher2.sqlite", vfs=s3vfs.name)) as db:
+
+        cursor = db.cursor()
+        # cursor.execute("SELECT * FROM sqlite_master;")
+        # print(cursor.fetchall())
+
+
         if limit is None:
-            cursor.execute("Select host_name, host_id FROM free_hostnames")
+            cursor.execute('Select host_name, host_id FROM free_hostnames;')
         else:
-            statement = "Select host_name, host_id FROM free_hostnames LIMIT %s"
-            data=(limit,)
+            statement = "Select host_name, host_id FROM free_hostnames LIMIT %s;"
+            data = (limit,)
             cursor.execute(statement, data)
-    
-        cur=cursor.fetchall()
+
+        dt = cursor.fetchall()
 
     free_VMs = []
-    for (host_name, host_id) in cur:
+    for (host_name, host_id) in dt:
         free_VMs.append({"host_name": host_name, "host_id": host_id})
 
     return jsonify(free_VMs)
 
+
 # TODO
-@app.route("/created/<str:name>", methods=["POST"])
+@app.route("/created/<string:name>", methods=["POST"])
 @check_api_key
 def post_created_update(name):
     req = request.get_json()
-    with apsw.Connection(key_prefix, vfs=s3vfs.name) as db:
+    with apsw.Connection(
+        key_prefix,
+        flags=(apsw.SQLITE_OPEN_READWRITE | apsw.SQLITE_OPEN_URI),
+        vfs=s3vfs.name,
+    ) as db:
         cursor = db.cursor()
         statement = "UPDATE vmware_master_data SET vmware_created=%s, rancher_allocated=%s, ip=%s WHERE host_name=%s"
-        data = (vmware_created,rancher_allocated,ip,name,)
-        cur.execute(statement,data)
+        data = (
+            vmware_created,
+            rancher_allocated,
+            ip,
+            name,
+        )
+        cur.execute(statement, data)
         cur.commit()
-    
+
     response_body = {
         "message": "Update has been successful.",
-        "sender": req.get("name")
+        "sender": req.get("name"),
     }
 
     res = make_response(jsonify(response_body), 200)
-    return(res)
+    return res
+
 
 # // GET
 @app.route("/cluster_nodes_vm/<string:name>")

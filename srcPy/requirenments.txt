@@ -1,4 +1,3 @@
-mariadb
 gunicorn
 black
 isort

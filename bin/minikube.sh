@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 export CHANGE_MINIKUBE_NONE_USER=true
